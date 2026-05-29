@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>مسجّل المكالمات | Call Recorder</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #ff3b5c;
+    --accent2: #7b5ea7;
+    --green: #00e676;
+    --blue: #448aff;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --recording-glow: 0 0 30px rgba(255,59,92,0.4);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 420px;
+    margin: 0 auto;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #fff 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .lang-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lang-btn:hover { border-color: var(--accent2); color: var(--text); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Pages */
+  .page { display: none; padding: 20px; padding-bottom: 100px; }
+  .page.active { display: block; }
+
+  /* Record Page */
+  .record-status {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 30px 20px;
+    text-align: center;
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .record-btn {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff3b5c, #c0003a);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    transition: all 0.3s;
+    position: relative;
+    box-shadow: 0 0 0 0 rgba(255,59,92,0.4);
+  }
+  .record-btn.recording {
+    animation: pulse 1.5s infinite;
+    box-shadow: var(--recording-glow);
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,59,92,0.5); }
+    70% { box-shadow: 0 0 0 20px rgba(255,59,92,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,59,92,0); }
+  }
+  .record-btn svg { width: 44px; height: 44px; fill: white; }
+  .record-btn.recording svg.mic { display: none; }
+  .record-btn:not(.recording) svg.stop { display: none; }
+
+  .timer {
+    font-family: 'Space Mono', monospace;
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+  .record-label {
+    font-size: 13px;
+    color: var(--text2);
+    font-weight: 400;
+  }
+  .record-label.active-label { color: var(--accent); font-weight: 600; }
+
+  /* Waveform */
+  .waveform {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    margin: 15px 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .waveform.active { opacity: 1; }
+  .wave-bar {
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: wave 0.8s ease-in-out infinite;
+    min-height: 4px;
+  }
+  @keyframes wave {
+    0%, 100% { height: 6px; }
+    50% { height: 30px; }
+  }
+
+  /* Save form */
+  .save-form {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    display: none;
+    margin-bottom: 20px;
+  }
+  .save-form.show { display: block; }
+  .save-form h3 { font-size: 15px; margin-bottom: 16px; color: var(--text); }
+  .input-group { margin-bottom: 14px; }
+  .input-group label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .input-group input, .input-group select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input:focus, .input-group select:focus { border-color: var(--accent2); }
+
+  .btn { 
+    width: 100%;
+    padding: 13px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Cairo', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent2), #5a3d8a); color: white; }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); margin-top: 10px; }
+
+  /* AI Section */
+  .ai-section {
+    background: linear-gradient(135deg, rgba(123,94,167,0.15), rgba(68,138,255,0.1));
+    border: 1px solid rgba(123,94,167,0.3);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .ai-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ai-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent2), var(--blue));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .ai-title { font-size: 14px; font-weight: 700; }
+  .ai-subtitle { font-size: 11px; color: var(--text2); }
+
+  .ai-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .ai-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    outline: none;
+  }
+  .ai-send-btn {
+    background: linear-gradient(135deg, var(--accent2), var(--blue));
+    border: none;
+    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: opacity 0.2s;
+  }
+  .ai-send-btn:hover { opacity: 0.8; }
+  .ai-response {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 50px;
+    display: none;
+  }
+  .ai-response.show { display: block; }
+  .ai-loading {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    padding: 10px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: bounce 1s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* Recordings List */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 16px; font-weight: 700; }
+  .count-badge {
+    background: var(--accent2);
+    color: white;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .search-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    width: 100%;
+    color: var(--text);
+    font-family: 'Cairo', sans-serif;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .search-bar:focus { border-color: var(--accent2); }
+
+  .recording-card {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+  }
+  .recording-card:hover { border-color: var(--accent2); }
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .card-name { font-size: 15px; font-weight: 700; }
+  .card-date { font-size: 11px; color: var(--text2); }
+  .card-info {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .info-chip {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Mini Player */
+  .mini-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 8px 12px;
+  }
+  .play-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+  }
+  .play-btn:hover { opacity: 0.8; }
+  .play-btn svg { width: 14px; height: 14px; fill: white; }
+  .progress-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s;
+  }
+  .duration-txt { font-size: 11px; color: var(--text2); font-family: 'Space Mono', monospace; white-space: nowrap; }
+
+  /* Card Actions */
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .action-btn {
+    flex: 1;
+    padding: 7px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    font-size: 11px;
+    font-family: 'Cairo', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .action-btn:hover { border-color: var(--accent2); color: var(--text); }
+  .action-btn.danger:hover { border-color: var(--accent); color: var(--accent); }
+  .action-btn.ai-btn:hover { border-color: var(--accent2); background: rgba(123,94,167,0.1); }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text2);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  /* Settings */
+  .settings-card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .settings-title {
+    padding: 14px 18px;
+    font-size: 12px;
+    color: var(--text2);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-info { flex: 1; }
+  .setting-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .setting-desc { font-size: 11px; color: var(--text2); }
+
+  /* Toggle */
+  .toggle {
+    width: 46px; height: 26px;
+    background: var(--border);
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--green); }
+  .toggle::after {
+    content: '';
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    transition: transform 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .toggle.on::after { transform: translateX(-20px); }
+
+  /* Bottom Nav */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 8px 0 12px;
+    z-index: 200;
+  }
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 4px;
+  }
+  .nav-icon { font-size: 22px; transition: transform 0.2s; }
+  .nav-label { font-size: 10px; color: var(--text2); font-weight: 600; }
+  .nav-item.active .nav-label { color: var(--accent); }
+  .nav-item.active .nav-icon { transform: scale(1.1); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* LTR override */
+  body.ltr { direction: ltr; font-family: 'Cairo', sans-serif; }
+  
+  /* API Key Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 500;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    display: none;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 420px;
+    border-top: 1px solid var(--border);
+  }
+  .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.6; }
+  .modal input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    margin-bottom: 14px;
+    direction: ltr;
+  }
+  .modal-link { color: var(--blue); font-size: 12px; text-decoration: none; display: block; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1 id="appTitle">🎙️ مسجّل الصوت</h1>
+  <button class="lang-btn" onclick="toggleLang()" id="langBtn">EN</button>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="showPage('record')" id="tab-record" data-ar="تسجيل" data-en="Record">تسجيل</div>
+  <div class="tab" onclick="showPage('recordings')" id="tab-recordings" data-ar="التسجيلات" data-en="Recordings">التسجيلات</div>
+  <div class="tab" onclick="showPage('settings')" id="tab-settings" data-ar="الإعدادات" data-en="Settings">الإعدادات</div>
+</div>
+
+<!-- RECORD PAGE -->
+<div class="page active" id="page-record">
+
+  <div class="record-status">
+    <button class="record-btn" id="recordBtn" onclick="toggleRecord()">
+      <svg class="mic" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      <svg class="stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+    </button>
+    
+    <div class="timer" id="timer">00:00</div>
+    <div class="record-label" id="recordLabel">اضغط للتسجيل</div>
+    
+    <div class="waveform" id="waveform">
+      <div class="wave-bar" style="animation-delay:0s"></div>
+      <div class="wave-bar" style="animation-delay:0.1s"></div>
+      <div class="wave-bar" style="animation-delay:0.2s"></div>
+      <div class="wave-bar" style="animation-delay:0.3s"></div>
+      <div class="wave-bar" style="animation-delay:0.4s"></div>
+      <div class="wave-bar" style="animation-delay:0.5s"></div>
+      <div class="wave-bar" style="animation-delay:0.6s"></div>
+      <div class="wave-bar" style="animation-delay:0.7s"></div>
+      <div class="wave-bar" style="animation-delay:0.8s"></div>
+      <div class="wave-bar" style="animation-delay:0.9s"></div>
+      <div class="wave-bar" style="animation-delay:1s"></div>
+      <div class="wave-bar" style="animation-delay:1.1s"></div>
+    </div>
+  </div>
+
+  <!-- Save Form -->
+  <div class="save-form" id="saveForm">
+    <h3 id="saveTitle">💾 حفظ التسجيل</h3>
+    <div class="input-group">
+      <label id="nameLabel">اسم جهة الاتصال</label>
+      <input type="text" id="contactName" placeholder="مثال: أحمد محمد">
+    </div>
+    <div class="input-group">
+      <label id="noteLabel">ملاحظة</label>
+      <input type="text" id="noteInput" placeholder="وصف سريع للمكالمة">
+    </div>
+    <button class="btn btn-primary" id="saveBtn" onclick="saveRecording()">حفظ التسجيل</button>
+    <button class="btn btn-secondary" id="discardBtn" onclick="discardRecording()">تجاهل</button>
+  </div>
+
+  <!-- AI Section -->
+  <div class="ai-section">
+    <div class="ai-header">
+      <div class="ai-icon">🤖</div>
+      <div>
+        <div class="ai-title" id="aiTitle">مساعد Claude AI</div>
+        <div class="ai-subtitle" id="aiSubtitle">اسأل عن تسجيلاتك أو احصل على مساعدة</div>
+      </div>
+    </div>
+    <div class="ai-input-row">
+      <input class="ai-input" type="text" id="aiInput" placeholder="اكتب سؤالك هنا..." onkeypress="if(event.key==='Enter')askAI()">
+      <button class="ai-send-btn" onclick="askAI()">➤</button>
+    </div>
+    <div class="ai-response" id="aiResponse"></div>
+    <div style="margin-top:8px;">
+      <button class="btn btn-secondary" style="font-size:12px;padding:8px;" onclick="showApiModal()" id="apiKeyBtn">🔑 إعداد API Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECORDINGS PAGE -->
+<div class="page" id="page-recordings">
+  <div class="section-header">
+    <div class="section-title" id="recTitle">التسجيلات المحفوظة</div>
+    <div class="count-badge" id="countBadge">0</div>
+  </div>
+  <input class="search-bar" type="text" id="searchBar" placeholder="🔍 بحث..." oninput="filterRecordings()">
+  <div id="recordingsList"></div>
+</div>
+
+<!-- SETTINGS PAGE -->
+<div class="page" id="page-settings">
+  <div class="settings-card">
+    <div class="settings-title" id="setGeneral">عام</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name" id="setLang">اللغة</div>
+        <div class="setting-desc" id="setLangDesc">عربي / English</div>
+      </div>
+      <div class="toggle on" id="langToggle" onclick="toggleLang()"></div>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name" id="setQuality">جودة التسجيل</div>
+        <div class="setting-desc" id="setQualityDesc">عالية الجودة</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <div class="settings-title" id="setAI">الذكاء الاصطناعي</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name" id="setApiKey">Claude API Key</div>
+        <div class="setting-desc" id="setApiDesc">مطلوب لميزات AI</div>
+      </div>
+      <button class="action-btn" style="flex:0;padding:8px 14px;" onclick="showApiModal()" id="setApiBtn">إعداد</button>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name" id="setAutoSum">تلخيص تلقائي</div>
+        <div class="setting-desc" id="setAutoSumDesc">لخّص كل تسجيل بالـ AI</div>
+      </div>
+      <div class="toggle" id="autoSumToggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <div class="settings-title" id="setAbout">عن التطبيق</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Voice Recorder Pro</div>
+        <div class="setting-desc">v1.0 — Powered by Claude AI</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- API Key Modal -->
+<div class="modal-overlay" id="apiModal">
+  <div class="modal">
+    <h3 id="modalTitle">🔑 Claude API Key</h3>
+    <p id="modalDesc">أدخل مفتاح API من Anthropic لتفعيل ميزات الذكاء الاصطناعي. المفتاح يُحفظ محلياً على جهازك فقط.</p>
+    <a href="https://console.anthropic.com" target="_blank" class="modal-link" id="modalLink">← احصل على مفتاح مجاني من console.anthropic.com</a>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <button class="btn btn-primary" onclick="saveApiKey()" id="modalSave">حفظ</button>
+    <button class="btn btn-secondary" onclick="closeApiModal()" style="margin-top:8px;" id="modalCancel">إلغاء</button>
+  </div>
+</div>
+
+<script>
+// State
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let timerInterval = null;
+let seconds = 0;
+let recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+let currentLang = localStorage.getItem('lang') || 'ar';
+let currentBlob = null;
+let apiKey = localStorage.getItem('claudeApiKey') || '';
+let playingIndex = -1;
+let currentAudio = null;
+
+// Translations
+const t = {
+  ar: {
+    appTitle: '🎙️ مسجّل الصوت',
+    tabRecord: 'تسجيل',
+    tabRecordings: 'التسجيلات',
+    tabSettings: 'الإعدادات',
+    pressToRecord: 'اضغط للتسجيل',
+    recording: '● يسجّل الآن...',
+    saveTitle: '💾 حفظ التسجيل',
+    nameLabel: 'اسم جهة الاتصال',
+    namePlaceholder: 'مثال: أحمد محمد',
+    noteLabel: 'ملاحظة',
+    notePlaceholder: 'وصف سريع للمكالمة',
+    saveBtn: 'حفظ التسجيل',
+    discardBtn: 'تجاهل',
+    aiTitle: 'مساعد Claude AI',
+    aiSubtitle: 'اسأل عن تسجيلاتك أو احصل على مساعدة',
+    aiPlaceholder: 'اكتب سؤالك هنا...',
+    apiKeyBtn: '🔑 إعداد API Key',
+    recTitle: 'التسجيلات المحفوظة',
+    searchPlaceholder: '🔍 بحث...',
+    emptyTitle: 'لا توجد تسجيلات بعد',
+    emptyDesc: 'ابدأ تسجيلاً جديداً من تبويب التسجيل',
+    play: '▶ تشغيل',
+    pause: '⏸ إيقاف',
+    share: '📤 مشاركة',
+    aiAnalyze: '🤖 تحليل',
+    delete: '🗑 حذف',
+    saved: '✅ تم الحفظ بنجاح!',
+    deleted: '🗑 تم الحذف',
+    noKey: '⚠️ أضف API Key أولاً من الإعدادات',
+    thinking: 'جاري التفكير...',
+    modalTitle: '🔑 Claude API Key',
+    modalDesc: 'أدخل مفتاح API من Anthropic لتفعيل ميزات الذكاء الاصطناعي. المفتاح يُحفظ محلياً على جهازك فقط.',
+    modalLink: '← احصل على مفتاح مجاني',
+    modalSave: 'حفظ',
+    modalCancel: 'إلغاء',
+    keySaved: '✅ تم حفظ المفتاح',
+    setGeneral: 'عام',
+    setLang: 'اللغة',
+    setLangDesc: 'عربي / English',
+    setQuality: 'جودة التسجيل',
+    setQualityDesc: 'عالية الجودة',
+    setAI: 'الذكاء الاصطناعي',
+    setApiKey: 'Claude API Key',
+    setApiDesc: 'مطلوب لميزات AI',
+    setApiBtn: 'إعداد',
+    setAutoSum: 'تلخيص تلقائي',
+    setAutoSumDesc: 'لخّص كل تسجيل بالـ AI',
+    setAbout: 'عن التطبيق',
+    langBtn: 'EN',
+    sec: 'ث',
+    min: 'د',
+  },
+  en: {
+    appTitle: '🎙️ Voice Recorder',
+    tabRecord: 'Record',
+    tabRecordings: 'Recordings',
+    tabSettings: 'Settings',
+    pressToRecord: 'Tap to Record',
+    recording: '● Recording...',
+    saveTitle: '💾 Save Recording',
+    nameLabel: 'Contact Name',
+    namePlaceholder: 'e.g. John Smith',
+    noteLabel: 'Note',
+    notePlaceholder: 'Quick description',
+    saveBtn: 'Save Recording',
+    discardBtn: 'Discard',
+    aiTitle: 'Claude AI Assistant',
+    aiSubtitle: 'Ask about your recordings or get help',
+    aiPlaceholder: 'Type your question...',
+    apiKeyBtn: '🔑 Setup API Key',
+    recTitle: 'Saved Recordings',
+    searchPlaceholder: '🔍 Search...',
+    emptyTitle: 'No recordings yet',
+    emptyDesc: 'Start a new recording from the Record tab',
+    play: '▶ Play',
+    pause: '⏸ Pause',
+    share: '📤 Share',
+    aiAnalyze: '🤖 Analyze',
+    delete: '🗑 Delete',
+    saved: '✅ Saved successfully!',
+    deleted: '🗑 Recording deleted',
+    noKey: '⚠️ Add API Key in Settings first',
+    thinking: 'Thinking...',
+    modalTitle: '🔑 Claude API Key',
+    modalDesc: 'Enter your Anthropic API key to enable AI features. The key is stored locally on your device only.',
+    modalLink: '← Get a free key at console.anthropic.com',
+    modalSave: 'Save',
+    modalCancel: 'Cancel',
+    keySaved: '✅ Key saved',
+    setGeneral: 'General',
+    setLang: 'Language',
+    setLangDesc: 'Arabic / English',
+    setQuality: 'Recording Quality',
+    setQualityDesc: 'High quality',
+    setAI: 'Artificial Intelligence',
+    setApiKey: 'Claude API Key',
+    setApiDesc: 'Required for AI features',
+    setApiBtn: 'Setup',
+    setAutoSum: 'Auto Summarize',
+    setAutoSumDesc: 'Summarize each recording with AI',
+    setAbout: 'About',
+    langBtn: 'ع',
+    sec: 's',
+    min: 'm',
+  }
+};
+
+function tr(key) { return t[currentLang][key] || key; }
+
+function applyLang() {
+  const isAr = currentLang === 'ar';
+  document.documentElement.lang = currentLang;
+  document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+  document.body.classList.toggle('ltr', !isAr);
+
+  document.getElementById('appTitle').textContent = tr('appTitle');
+  document.getElementById('langBtn').textContent = tr('langBtn');
+  document.getElementById('tab-record').textContent = tr('tabRecord');
+  document.getElementById('tab-recordings').textContent = tr('tabRecordings');
+  document.getElementById('tab-settings').textContent = tr('tabSettings');
+  document.getElementById('recordLabel').textContent = isRecording ? tr('recording') : tr('pressToRecord');
+  document.getElementById('saveTitle').textContent = tr('saveTitle');
+  document.getElementById('nameLabel').textContent = tr('nameLabel');
+  document.getElementById('contactName').placeholder = tr('namePlaceholder');
+  document.getElementById('noteLabel').textContent = tr('noteLabel');
+  document.getElementById('noteInput').placeholder = tr('notePlaceholder');
+  document.getElementById('saveBtn').textContent = tr('saveBtn');
+  document.getElementById('discardBtn').textContent = tr('discardBtn');
+  document.getElementById('aiTitle').textContent = tr('aiTitle');
+  document.getElementById('aiSubtitle').textContent = tr('aiSubtitle');
+  document.getElementById('aiInput').placeholder = tr('aiPlaceholder');
+  document.getElementById('apiKeyBtn').textContent = tr('apiKeyBtn');
+  document.getElementById('recTitle').textContent = tr('recTitle');
+  document.getElementById('searchBar').placeholder = tr('searchPlaceholder');
+  document.getElementById('setGeneral').textContent = tr('setGeneral');
+  document.getElementById('setLang').textContent = tr('setLang');
+  document.getElementById('setLangDesc').textContent = tr('setLangDesc');
+  document.getElementById('setQuality').textContent = tr('setQuality');
+  document.getElementById('setQualityDesc').textContent = tr('setQualityDesc');
+  document.getElementById('setAI').textContent = tr('setAI');
+  document.getElementById('setApiKey').textContent = tr('setApiKey');
+  document.getElementById('setApiDesc').textContent = tr('setApiDesc');
+  document.getElementById('setApiBtn').textContent = tr('setApiBtn');
+  document.getElementById('setAutoSum').textContent = tr('setAutoSum');
+  document.getElementById('setAutoSumDesc').textContent = tr('setAutoSumDesc');
+  document.getElementById('modalTitle').textContent = tr('modalTitle');
+  document.getElementById('modalDesc').textContent = tr('modalDesc');
+  document.getElementById('modalSave').textContent = tr('modalSave');
+  document.getElementById('modalCancel').textContent = tr('modalCancel');
+
+  renderRecordings();
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'ar' ? 'en' : 'ar';
+  localStorage.setItem('lang', currentLang);
+  document.getElementById('langToggle').classList.toggle('on', currentLang === 'ar');
+  applyLang();
+}
+
+// Pages
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'recordings') renderRecordings();
+}
+
+// Recording
+async function toggleRecord() {
+  if (!isRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        currentBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        stream.getTracks().forEach(t => t.stop());
+        document.getElementById('saveForm').classList.add('show');
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      seconds = 0;
+      timerInterval = setInterval(updateTimer, 1000);
+      document.getElementById('recordBtn').classList.add('recording');
+      document.getElementById('recordLabel').textContent = tr('recording');
+      document.getElementById('recordLabel').classList.add('active-label');
+      document.getElementById('waveform').classList.add('active');
+    } catch(e) {
+      showToast('⚠️ لا يمكن الوصول للميكروفون');
+    }
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    clearInterval(timerInterval);
+    document.getElementById('recordBtn').classList.remove('recording');
+    document.getElementById('recordLabel').textContent = tr('pressToRecord');
+    document.getElementById('recordLabel').classList.remove('active-label');
+    document.getElementById('waveform').classList.remove('active');
+  }
+}
+
+function updateTimer() {
+  seconds++;
+  const m = String(Math.floor(seconds/60)).padStart(2,'0');
+  const s = String(seconds%60).padStart(2,'0');
+  document.getElementById('timer').textContent = `${m}:${s}`;
+}
+
+function formatDuration(s) {
+  const m = Math.floor(s/60);
+  const sec = s%60;
+  return m > 0 ? `${m}${tr('min')} ${sec}${tr('sec')}` : `${sec}${tr('sec')}`;
+}
+
+function saveRecording() {
+  if (!currentBlob) return;
+  const name = document.getElementById('contactName').value || (currentLang==='ar' ? 'تسجيل جديد' : 'New Recording');
+  const note = document.getElementById('noteInput').value;
+  const url = URL.createObjectURL(currentBlob);
+  const rec = {
+    id: Date.now(),
+    name,
+    note,
+    date: new Date().toLocaleDateString(currentLang==='ar' ? 'ar-SA' : 'en-US'),
+    time: new Date().toLocaleTimeString(currentLang==='ar' ? 'ar-SA' : 'en-US', {hour:'2-digit',minute:'2-digit'}),
+    duration: seconds,
+    size: (currentBlob.size / 1024).toFixed(0) + ' KB',
+    url,
+    blobData: null
+  };
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    rec.blobData = reader.result;
+    recordings.unshift(rec);
+    try { localStorage.setItem('recordings', JSON.stringify(recordings)); } catch(e) {}
+    showToast(tr('saved'));
+    document.getElementById('saveForm').classList.remove('show');
+    document.getElementById('contactName').value = '';
+    document.getElementById('noteInput').value = '';
+    document.getElementById('timer').textContent = '00:00';
+    seconds = 0;
+    currentBlob = null;
+    renderRecordings();
+    updateCount();
+  };
+  reader.readAsDataURL(currentBlob);
+}
+
+function discardRecording() {
+  currentBlob = null;
+  document.getElementById('saveForm').classList.remove('show');
+  document.getElementById('timer').textContent = '00:00';
+  seconds = 0;
+}
+
+// Render
+function renderRecordings(filter = '') {
+  const list = document.getElementById('recordingsList');
+  const filtered = recordings.filter(r => 
+    r.name.toLowerCase().includes(filter.toLowerCase()) ||
+    (r.note && r.note.toLowerCase().includes(filter.toLowerCase()))
+  );
+  
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">🎙️</div><p><b>${tr('emptyTitle')}</b><br><br>${tr('emptyDesc')}</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map((r,i) => `
+    <div class="recording-card" id="card-${r.id}">
+      <div class="card-top">
+        <div class="card-name">${r.name}</div>
+        <div class="card-date">${r.date} ${r.time}</div>
+      </div>
+      ${r.note ? `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">📝 ${r.note}</div>` : ''}
+      <div class="card-info">
+        <div class="info-chip">⏱ ${formatDuration(r.duration)}</div>
+        <div class="info-chip">💾 ${r.size}</div>
+      </div>
+      <div class="mini-player">
+        <button class="play-btn" onclick="togglePlay(${r.id})" id="playbtn-${r.id}">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="progress-bar" onclick="seekAudio(event, ${r.id})">
+          <div class="progress-fill" id="progress-${r.id}"></div>
+        </div>
+        <span class="duration-txt" id="dur-${r.id}">${formatDuration(r.duration)}</span>
+      </div>
+      <div class="card-actions">
+        <button class="action-btn" onclick="shareRec(${r.id})">${tr('share')}</button>
+        <button class="action-btn ai-btn" onclick="analyzeRec(${r.id})">${tr('aiAnalyze')}</button>
+        <button class="action-btn danger" onclick="deleteRec(${r.id})">${tr('delete')}</button>
+      </div>
+      <div class="ai-response" id="ai-card-${r.id}" style="margin-top:10px;"></div>
+    </div>
+  `).join('');
+  updateCount();
+}
+
+function filterRecordings() {
+  renderRecordings(document.getElementById('searchBar').value);
+}
+
+function updateCount() {
+  document.getElementById('countBadge').textContent = recordings.length;
+}
+
+// Playback
+const audioElements = {};
+
+function togglePlay(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec || !rec.blobData) return;
+
+  if (!audioElements[id]) {
+    audioElements[id] = new Audio(rec.blobData);
+    audioElements[id].ontimeupdate = () => {
+      const pct = (audioElements[id].currentTime / audioElements[id].duration) * 100;
+      const el = document.getElementById('progress-'+id);
+      if (el) el.style.width = pct + '%';
+      const dur = document.getElementById('dur-'+id);
+      if (dur) {
+        const remaining = Math.floor(audioElements[id].duration - audioElements[id].currentTime);
+        dur.textContent = formatDuration(remaining);
+      }
+    };
+    audioElements[id].onended = () => {
+      const btn = document.getElementById('playbtn-'+id);
+      if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+      const el = document.getElementById('progress-'+id);
+      if (el) el.style.width = '0%';
+    };
+  }
+
+  if (audioElements[id].paused) {
+    // Stop others
+    Object.keys(audioElements).forEach(k => {
+      if (k != id && !audioElements[k].paused) {
+        audioElements[k].pause();
+        const btn = document.getElementById('playbtn-'+k);
+        if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+      }
+    });
+    audioElements[id].play();
+    document.getElementById('playbtn-'+id).innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+  } else {
+    audioElements[id].pause();
+    document.getElementById('playbtn-'+id).innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+  }
+}
+
+function seekAudio(e, id) {
+  if (!audioElements[id]) return;
+  const bar = e.currentTarget;
+  const pct = e.offsetX / bar.offsetWidth;
+  audioElements[id].currentTime = pct * audioElements[id].duration;
+}
+
+// Share
+function shareRec(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec) return;
+  if (navigator.share) {
+    navigator.share({ title: rec.name, text: `تسجيل: ${rec.name} - ${rec.date}` });
+  } else {
+    const a = document.createElement('a');
+    a.href = rec.blobData;
+    a.download = `${rec.name}.webm`;
+    a.click();
+  }
+}
+
+// Delete
+function deleteRec(id) {
+  recordings = recordings.filter(r => r.id !== id);
+  localStorage.setItem('recordings', JSON.stringify(recordings));
+  renderRecordings(document.getElementById('searchBar').value);
+  showToast(tr('deleted'));
+}
+
+// AI
+async function askAI() {
+  const input = document.getElementById('aiInput');
+  const question = input.value.trim();
+  if (!question) return;
+  if (!apiKey) { showToast(tr('noKey')); showApiModal(); return; }
+
+  const resp = document.getElementById('aiResponse');
+  resp.classList.add('show');
+  resp.innerHTML = `<div class="ai-loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  input.value = '';
+
+  const recSummary = recordings.slice(0,5).map(r => `- ${r.name}: ${r.date}, ${formatDuration(r.duration)}`).join('\n');
+  const systemPrompt = currentLang === 'ar'
+    ? `أنت مساعد ذكي لتطبيق تسجيل الصوت. التسجيلات الأخيرة:\n${recSummary}\nأجب باختصار ووضوح بالعربية.`
+    : `You are a smart assistant for a voice recording app. Recent recordings:\n${recSummary}\nAnswer briefly and clearly in English.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: question }]
+      })
+    });
+    const data = await res.json();
+    resp.textContent = data.content?.[0]?.text || (currentLang==='ar' ? 'لم أتمكن من الإجابة' : 'Could not get a response');
+  } catch(e) {
+    resp.textContent = currentLang==='ar' ? '❌ خطأ في الاتصال' : '❌ Connection error';
+  }
+}
+
+async function analyzeRec(id) {
+  const rec = recordings.find(r => r.id === id);
+  if (!rec) return;
+  if (!apiKey) { showToast(tr('noKey')); return; }
+
+  const cardAI = document.getElementById('ai-card-'+id);
+  cardAI.classList.add('show');
+  cardAI.innerHTML = `<div class="ai-loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+
+  const prompt = currentLang === 'ar'
+    ? `قدّم ملخصاً وتحليلاً لمكالمة بعنوان "${rec.name}"، تاريخها ${rec.date}، مدتها ${formatDuration(rec.duration)}. الملاحظة: ${rec.note || 'لا توجد'}. اكتب 3 نقاط مفيدة.`
+    : `Provide a summary and analysis for a recording titled "${rec.name}", dated ${rec.date}, duration ${formatDuration(rec.duration)}. Note: ${rec.note || 'none'}. Write 3 helpful bullet points.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    cardAI.textContent = data.content?.[0]?.text || '—';
+  } catch(e) {
+    cardAI.textContent = '❌ Error';
+  }
+}
+
+// API Key Modal
+function showApiModal() {
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('apiModal').classList.add('show');
+}
+function closeApiModal() {
+  document.getElementById('apiModal').classList.remove('show');
+}
+function saveApiKey() {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('claudeApiKey', apiKey);
+  closeApiModal();
+  showToast(tr('keySaved'));
+}
+
+// Toast
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Init
+applyLang();
+updateCount();
+renderRecordings();
+</script>
+</body>
+</html>
